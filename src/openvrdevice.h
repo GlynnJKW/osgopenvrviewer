@@ -30,6 +30,8 @@ class OpenVRTextureBuffer : public osg::Referenced
 		OpenVRTextureBuffer(osg::ref_ptr<osg::State> state, int width, int height, int msaaSamples);
 		void destroy(osg::GraphicsContext* gc);
 		GLuint getTexture() { return m_Resolve_ColorTex; }
+		GLuint getMSAAColor() { return m_MSAA_ColorTex; }
+		GLuint getMSAADepth() { return m_MSAA_DepthTex; }
 		int textureWidth() const { return m_width; }
 		int textureHeight() const { return m_height; }
 		int samples() const { return m_samples; }
@@ -54,9 +56,19 @@ class OpenVRTextureBuffer : public osg::Referenced
 class OpenVRMirrorTexture : public osg::Referenced
 {
 	public:
+		enum BlitOptions
+		{
+			BOTH_EYES,
+			LEFT_EYE,
+			RIGHT_EYE
+		};
+
+		GLint width() { return m_width; }
+		GLint height() { return m_height; }
+
 		OpenVRMirrorTexture(osg::ref_ptr<osg::State> state, GLint width, GLint height);
 		void destroy(osg::GraphicsContext* gc);
-		void blitTexture(osg::GraphicsContext* gc, OpenVRTextureBuffer* leftEye,  OpenVRTextureBuffer* rightEye);
+		void blitTexture(osg::GraphicsContext* gc, OpenVRTextureBuffer* leftEye,  OpenVRTextureBuffer* rightEye, BlitOptions eye = BlitOptions::BOTH_EYES);
 	protected:
 		~OpenVRMirrorTexture() {}
 
@@ -153,8 +165,8 @@ class OpenVRDevice : public osg::Referenced
 		ControllerData controllers[2];
 		TrackerData trackers[32];
 		int hmdDeviceID = -1;
-		int numControllers;
-		int numTrackers;
+		int numControllers = 2;
+		int numTrackers = 0;
 
 
 		OpenVRDevice(float nearClip, float farClip, const float worldUnitsPerMetre = 1.0f, const int samples = 0);
@@ -194,7 +206,7 @@ class OpenVRDevice : public osg::Referenced
 		osg::Camera* createRTTCamera(OpenVRDevice::Eye eye, osg::Transform::ReferenceFrame referenceFrame, const osg::Vec4& clearColor, osg::GraphicsContext* gc = 0) const;
 
 		bool submitFrame();
-		void blitMirrorTexture(osg::GraphicsContext* gc);
+		void blitMirrorTexture(osg::GraphicsContext* gc, OpenVRMirrorTexture::BlitOptions eye = OpenVRMirrorTexture::BlitOptions::BOTH_EYES);
 
 		vr::IVRSystem* vrSystem() const { return m_vrSystem; }
 

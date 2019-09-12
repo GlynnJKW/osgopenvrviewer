@@ -191,7 +191,7 @@ OpenVRMirrorTexture::OpenVRMirrorTexture(osg::ref_ptr<osg::State> state, GLint w
 
 }
 
-void OpenVRMirrorTexture::blitTexture(osg::GraphicsContext* gc, OpenVRTextureBuffer* leftEye,  OpenVRTextureBuffer* rightEye)
+void OpenVRMirrorTexture::blitTexture(osg::GraphicsContext* gc, OpenVRTextureBuffer* leftEye,  OpenVRTextureBuffer* rightEye, BlitOptions eye)
 {
 	const OSG_GLExtensions* fbo_ext = getGLExtensions(*(gc->getState()));
 
@@ -202,25 +202,54 @@ void OpenVRMirrorTexture::blitTexture(osg::GraphicsContext* gc, OpenVRTextureBuf
 	glClearColor(1, 0, 0, 1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	//--------------------------------
-	// Copy left eye image to mirror
-	fbo_ext->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, leftEye->m_Resolve_FBO);
-	fbo_ext->glFramebufferTexture2D(GL_READ_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D,leftEye->m_Resolve_ColorTex, 0);
-	fbo_ext->glFramebufferRenderbuffer(GL_READ_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, 0);
+	if (eye == BlitOptions::LEFT_EYE)
+	{
+		// Blit left eye to mirror
+		fbo_ext->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, leftEye->m_Resolve_FBO);
+		fbo_ext->glFramebufferTexture2D(GL_READ_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, leftEye->m_Resolve_ColorTex, 0);
+		fbo_ext->glFramebufferRenderbuffer(GL_READ_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, 0);
 
-	fbo_ext->glBlitFramebuffer(0, 0, leftEye->m_width, leftEye->m_height,
-							   0, 0, m_width / 2, m_height,
-							   GL_COLOR_BUFFER_BIT, GL_NEAREST);
-	//--------------------------------
-	// Copy right eye image to mirror
-	fbo_ext->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, rightEye->m_Resolve_FBO);
-	fbo_ext->glFramebufferTexture2D(GL_READ_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, rightEye->m_Resolve_ColorTex, 0);
-	fbo_ext->glFramebufferRenderbuffer(GL_READ_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, 0);
+		fbo_ext->glBlitFramebuffer(0, 0, leftEye->m_width, leftEye->m_height,
+			0, 0, m_width, m_height,
+			GL_COLOR_BUFFER_BIT, GL_LINEAR);
 
-	fbo_ext->glBlitFramebuffer(0, 0, rightEye->m_width, rightEye->m_height,
-							   m_width / 2, 0, m_width, m_height,
-							   GL_COLOR_BUFFER_BIT, GL_NEAREST);
-	//---------------------------------
+	}
+	else if (eye == BlitOptions::RIGHT_EYE)
+	{
+		// Blit right eye to mirror
+		fbo_ext->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, rightEye->m_Resolve_FBO);
+		fbo_ext->glFramebufferTexture2D(GL_READ_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, rightEye->m_Resolve_ColorTex, 0);
+		fbo_ext->glFramebufferRenderbuffer(GL_READ_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, 0);
+
+		fbo_ext->glBlitFramebuffer(0, 0, rightEye->m_width, rightEye->m_height,
+			0, 0, m_width, m_height,
+			GL_COLOR_BUFFER_BIT, GL_LINEAR);
+
+
+	}
+	else if (eye == BlitOptions::BOTH_EYES)
+	{
+		//--------------------------------
+		// Copy left eye image to mirror
+		fbo_ext->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, leftEye->m_Resolve_FBO);
+		fbo_ext->glFramebufferTexture2D(GL_READ_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, leftEye->m_Resolve_ColorTex, 0);
+		fbo_ext->glFramebufferRenderbuffer(GL_READ_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, 0);
+
+		fbo_ext->glBlitFramebuffer(0, 0, leftEye->m_width, leftEye->m_height,
+			0, 0, m_width / 2, m_height,
+			GL_COLOR_BUFFER_BIT, GL_NEAREST);
+		//--------------------------------
+		// Copy right eye image to mirror
+		fbo_ext->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, rightEye->m_Resolve_FBO);
+		fbo_ext->glFramebufferTexture2D(GL_READ_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, rightEye->m_Resolve_ColorTex, 0);
+		fbo_ext->glFramebufferRenderbuffer(GL_READ_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, 0);
+
+		fbo_ext->glBlitFramebuffer(0, 0, rightEye->m_width, rightEye->m_height,
+			m_width / 2, 0, m_width, m_height,
+			GL_COLOR_BUFFER_BIT, GL_NEAREST);
+		//---------------------------------
+
+	}
 
 	fbo_ext->glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
 
@@ -229,10 +258,12 @@ void OpenVRMirrorTexture::blitTexture(osg::GraphicsContext* gc, OpenVRTextureBuf
 	fbo_ext->glBindFramebuffer(GL_DRAW_FRAMEBUFFER_EXT, 0);
 	GLint w = m_width;
 	GLint h = m_height;
+	//OSG_INFO << "Blitting to window with size " << gc->getTraits()->width << ", " << gc->getTraits()->height << std::endl;
 	fbo_ext->glBlitFramebuffer(0, 0, w, h,
-							   0, 0, w, h,
-							   GL_COLOR_BUFFER_BIT, GL_NEAREST);
+		0, 0, gc->getTraits()->width, gc->getTraits()->height,
+		GL_COLOR_BUFFER_BIT, GL_LINEAR);
 	fbo_ext->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, 0);
+
 }
 
 void OpenVRMirrorTexture::destroy(osg::GraphicsContext* gc)
@@ -317,6 +348,7 @@ std::string OpenVRDevice::GetDeviceProperty(vr::TrackedDeviceProperty prop)
 
 void OpenVRDevice::createRenderBuffers(osg::ref_ptr<osg::State> state)
 {
+	OSG_NOTICE << "Creating render buffers" << std::endl;
 	uint32_t renderWidth = 0;
 	uint32_t renderHeight = 0;
 	m_vrSystem->GetRecommendedRenderTargetSize(&renderWidth, &renderHeight);
@@ -326,8 +358,8 @@ void OpenVRDevice::createRenderBuffers(osg::ref_ptr<osg::State> state)
 		m_textureBuffer[i] = new OpenVRTextureBuffer(state, renderWidth, renderHeight, m_samples);
 	}
 
-	int mirrorWidth = 800;
-	int mirrorHeight = 450;
+	int mirrorWidth = 2160;
+	int mirrorHeight = 1200;
 	m_mirrorTexture = new OpenVRMirrorTexture(state, mirrorWidth, mirrorHeight);
 }
 
@@ -411,6 +443,8 @@ void OpenVRDevice::updatePose()
 		assignIDs();
 	}
 
+	calculateProjectionMatrices();
+
 	/*
 	vr::VRCompositor()->SetTrackingSpace(vr::TrackingUniverseStanding);
 	vr::TrackedDevicePose_t poses[vr::k_unMaxTrackedDeviceCount];
@@ -433,7 +467,7 @@ void OpenVRDevice::updatePose()
 	vr::VRControllerState_t VRCS;
 
 	
-
+	//updateControllerEvents();
 	//Controllers update pose
 	for (int i = 0; i < numControllers; ++i)
 	{
@@ -443,9 +477,9 @@ void OpenVRDevice::updatePose()
 		m_vrSystem->GetControllerStateWithPose(vr::TrackingUniverseStanding, pC->deviceID, &VRCS, sizeof(VRCS), &TDP);
 
 		pC->isValid = TDP.bPoseIsValid;
-		pC->trigVal = VRCS.rAxis[pC->idtrigger].x;
-		pC->padX = VRCS.rAxis[pC->idpad].x;
-		pC->padY = VRCS.rAxis[pC->idpad].y;
+		pC->trigVal = VRCS.rAxis[1].x;
+		pC->padX = VRCS.rAxis[0].x;
+		pC->padY = VRCS.rAxis[0].y;
 
 		if (pC->isValid)
 		{
@@ -538,14 +572,18 @@ void OpenVRDevice::assignIDs()
 					
 					pC->deviceID = i;
 
-					for (int j = 0; j < vr::k_unControllerStateAxisCount; ++j) {
-						int prop = m_vrSystem->GetInt32TrackedDeviceProperty(pC->deviceID, (vr::ETrackedDeviceProperty)(vr::Prop_Axis0Type_Int32 + j));
+					//vr::VRControllerState_t state = vr::VRControllerState_t();
 
-						if (prop == vr::k_eControllerAxis_Trigger)
-							pC->idtrigger = j;
-						else if (prop == vr::k_eControllerAxis_TrackPad)
-							pC->idpad = j;
-					}
+					//m_vrSystem->GetControllerState(i, &state, sizeof(state));
+
+					//for (int j = 0; j < vr::k_unControllerStateAxisCount; ++j) {
+					//	int prop = m_vrSystem->GetInt32TrackedDeviceProperty(pC->deviceID, (vr::ETrackedDeviceProperty)(vr::Prop_Axis0Type_Int32 + j));
+					//
+					//	if (prop == vr::k_eControllerAxis_Trigger)
+					//		pC->idtrigger = j;
+					//	else if (prop == vr::k_eControllerAxis_TrackPad)
+					//		pC->idpad = j;
+					//}
 
 					++numCInit;
 				}
@@ -683,9 +721,17 @@ bool OpenVRDevice::submitFrame()
 	return lError == vr::VRCompositorError_None && rError == vr::VRCompositorError_None;
 }
 
-void OpenVRDevice::blitMirrorTexture(osg::GraphicsContext* gc)
+void OpenVRDevice::blitMirrorTexture(osg::GraphicsContext* gc, OpenVRMirrorTexture::BlitOptions eye)
 {
-	m_mirrorTexture->blitTexture(gc, m_textureBuffer[0], m_textureBuffer[1]);
+	if (m_mirrorTexture->width() == (GLint)2160 && eye != OpenVRMirrorTexture::BlitOptions::BOTH_EYES)
+	{
+		m_mirrorTexture = new OpenVRMirrorTexture(gc->getState(), 1080, 1200);
+	}
+	else if (m_mirrorTexture->width() == (GLint)1080 && eye == OpenVRMirrorTexture::BlitOptions::BOTH_EYES)
+	{
+		m_mirrorTexture = new OpenVRMirrorTexture(gc->getState(), 2160, 1200);
+	}
+	m_mirrorTexture->blitTexture(gc, m_textureBuffer[0], m_textureBuffer[1], eye);
 }
 
 osg::GraphicsContext::Traits* OpenVRDevice::graphicsContextTraits() const
@@ -837,7 +883,7 @@ void OpenVRSwapCallback::swapBuffersImplementation(osg::GraphicsContext* gc)
 	m_device->submitFrame();
 
 	// Blit mirror texture to backbuffer
-	m_device->blitMirrorTexture(gc);
+	m_device->blitMirrorTexture(gc, OpenVRMirrorTexture::BlitOptions::BOTH_EYES);
 
 	// Run the default system swapBufferImplementation
 	gc->swapBuffersImplementation();
